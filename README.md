@@ -179,6 +179,6 @@ properties are nullable, so if a key is missing, it becomes null instead of caus
 System.Text.Json ignores any key it doesn't know, so the extra "lastUpdate" field in Dummy is
 simply ignored. And the upsert only writes fields that are actually present, so if
 "createdAt" is missing in Dummy, the old value in the database stays instead of becoming
-null. This last point is easy to miss — you only notice it if you sync Actual, then sync
+null. This last point is easy to miss, you only notice it if you sync Actual, then sync
 Dummy, and check if the timestamps are still there. So I tested both cases: Dummy into an
 empty database, and Dummy after Actual already filled the database.
