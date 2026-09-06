@@ -142,7 +142,26 @@ The difference between the two payloads, confirmed from the live responses:
 
 ## Time spent
 
-_<!-- TODO: fill in the honest total before submitting, e.g. "About 6 hours: ~1h reading
-the brief and exploring the API in Swagger, ~1h on the Code-First model and migrations,
-~2h on the login/fetch/upsert pipeline, ~1h on the resilience behaviour and testing both
-datasets, ~1h on documentation." -->_
+**About 3 hours.**
+
+Most of it went in before much code was written: reading the API in Swagger to pin down two
+things that are easy to get wrong. The login endpoint returns the JWT as a bare JSON string
+rather than an object, so it has to be deserialised as a plain `string`; and the
+`Authorization` header needs the explicit `Bearer ` prefix, without which the data endpoints
+answer `401`. The payload shape mattered too — platforms come back as an array with their
+wells nested under the singular key `well`, and `platformId` is supplied directly, so it
+doubles as the foreign key with no inference needed.
+
+With those settled the implementation was direct: Code-First entities and a migration, a
+typed `HttpClient` for login and fetch, and an upsert keyed on the API's `id`.
+
+The rest of the time went on the requirement that the sync must not break when the payload
+changes shape, which was worth doing carefully rather than quickly. It needs no special
+machinery, but it does need three deliberate choices working together: nullable DTO
+properties, so a key the payload omits deserialises to `null` instead of throwing;
+`System.Text.Json` ignoring unmapped keys by default, which covers Dummy's added
+`lastUpdate` at no cost; and an upsert that writes only the fields that actually arrived, so
+Dummy's missing `createdAt` leaves the stored value intact instead of overwriting good data
+with `null`. That last point is the one that does not surface until you sync Actual and then
+Dummy and check the timestamps survived, so I tested both datasets in both orders — Dummy
+into an empty database as well as over existing rows.
