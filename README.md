@@ -161,24 +161,24 @@ Run against the synced data it reproduces the expected result exactly:
 
 **About 3 hours.**
 
-Most of it went in before much code was written: reading the API in Swagger to pin down two
-things that are easy to get wrong. The login endpoint returns the JWT as a bare JSON string
-rather than an object, so it has to be deserialised as a plain `string`; and the
-`Authorization` header needs the explicit `Bearer ` prefix, without which the data endpoints
-answer `401`. The payload shape mattered too — platforms come back as an array with their
-wells nested under the singular key `well`, and `platformId` is supplied directly, so it
-doubles as the foreign key with no inference needed.
+Most of the time was used before I wrote any code. I spent it reading the API in Swagger, to
+check two things that are easy to get wrong. First, the login endpoint gives back the JWT as
+a plain JSON string, not inside an object, so I need to read it as a plain string. Second,
+the Authorization header needs the word "Bearer" in front of the token, or the API replies
+with 401. I also checked the data shape: platforms come as an array, and each platform has
+its wells inside a field called "well" (not "wells"), and each well already has "platformId"
+inside it, so I can use that directly as the foreign key without extra logic.
 
-With those settled the implementation was direct: Code-First entities and a migration, a
-typed `HttpClient` for login and fetch, and an upsert keyed on the API's `id`.
+After I understood these things, the coding part was simple: I made Code-First entities and
+a migration, an HttpClient for login and fetching data, and an upsert based on the "id" from
+the API.
 
-The rest of the time went on the requirement that the sync must not break when the payload
-changes shape, which was worth doing carefully rather than quickly. It needs no special
-machinery, but it does need three deliberate choices working together: nullable DTO
-properties, so a key the payload omits deserialises to `null` instead of throwing;
-`System.Text.Json` ignoring unmapped keys by default, which covers Dummy's added
-`lastUpdate` at no cost; and an upsert that writes only the fields that actually arrived, so
-Dummy's missing `createdAt` leaves the stored value intact instead of overwriting good data
-with `null`. That last point is the one that does not surface until you sync Actual and then
-Dummy and check the timestamps survived, so I tested both datasets in both orders — Dummy
-into an empty database as well as over existing rows.
+The rest of the time was for the requirement that the app must not break when the data shape
+changes. This part needed more care, not more time. I used three things together: DTO
+properties are nullable, so if a key is missing, it becomes null instead of causing an error.
+System.Text.Json ignores any key it doesn't know, so the extra "lastUpdate" field in Dummy is
+simply ignored. And the upsert only writes fields that are actually present, so if
+"createdAt" is missing in Dummy, the old value in the database stays instead of becoming
+null. This last point is easy to miss — you only notice it if you sync Actual, then sync
+Dummy, and check if the timestamps are still there. So I tested both cases: Dummy into an
+empty database, and Dummy after Actual already filled the database.
