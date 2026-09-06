@@ -1,7 +1,8 @@
 # AemEnersolSync
 
-An ASP.NET Core 8 Web API that pulls Platform and Well data from the AEM Enersol API and
-stores it in a local SQL Server (LocalDB) database using **EF Core Code-First**.
+An ASP.NET Core 8 Web API that pulls Platform and Well data from the AEM Enersol test API
+(<http://test-demo.aemenersol.com>) and stores it in a local SQL Server (LocalDB) database
+using **EF Core Code-First**.
 
 One HTTP request drives the whole chain — log in for a JWT, call the platform endpoint
 with it, upsert the results — with no tokens to copy by hand in between.
@@ -38,8 +39,8 @@ Both sync endpoints return a tally of what happened:
   "dataset": "Actual",
   "startedAt": "2026-09-06T14:25:02.09Z",
   "completedAt": "2026-09-06T14:25:02.76Z",
-  "platforms": { "fetched": 2, "inserted": 2, "updated": 0, "skipped": 0 },
-  "wells":     { "fetched": 1, "inserted": 1, "updated": 0, "skipped": 0 }
+  "platforms": { "fetched": 10, "inserted": 10, "updated": 0, "skipped": 0 },
+  "wells":     { "fetched": 15, "inserted": 15, "updated": 0, "skipped": 0 }
 }
 ```
 
@@ -49,18 +50,22 @@ Prerequisites: .NET 8 SDK and SQL Server LocalDB (installed with Visual Studio, 
 the SQL Server Express installer).
 
 ```powershell
-# 1. Set the API base URL in appsettings.json (AemEnersolApi:BaseUrl)
-
-# 2. Create the database from the Code-First migrations
+# 1. Create the database from the Code-First migrations
 dotnet tool restore
 dotnet ef database update
 
-# 3. Run
+# 2. Run
 dotnet run
+
+# 3. Trigger a sync (or click Execute in Swagger)
+curl -X POST http://localhost:5237/api/sync/actual
 ```
 
-Swagger opens at `https://localhost:7171/swagger`; `AemEnersolSync.http` has the same
-requests for VS Code / Visual Studio.
+The API base URL and credentials are already set in `appsettings.json`, so a fresh clone
+runs against the test API without further configuration.
+
+Swagger opens at `/swagger` on whichever launch profile you use (`http://localhost:5237/swagger`
+by default); `AemEnersolSync.http` has the same requests for VS Code / Visual Studio.
 
 ## Configuration
 
@@ -68,7 +73,7 @@ requests for VS Code / Visual Studio.
 
 ```json
 "AemEnersolApi": {
-  "BaseUrl": "",
+  "BaseUrl": "http://test-demo.aemenersol.com",
   "Username": "user@aemenersol.com",
   "Password": "Test@123",
   "LoginPath": "api/Account/Login",
@@ -114,6 +119,26 @@ counted rather than failing the entire run on a foreign-key violation.
 
 **The sync is additive.** Rows the API stops returning are left in place, so a partial
 upstream response can never wipe local data.
+
+## Verified against the live API
+
+Run against <http://test-demo.aemenersol.com>, which returns 10 platforms and 15 wells:
+
+| Check | Result |
+| --- | --- |
+| `POST /api/sync/actual` on an empty database | 10 platforms + 15 wells inserted |
+| Same call again | 0 inserted, 25 rows **updated** — the upsert is idempotent |
+| `POST /api/sync/dummy` after Actual | 200 OK, 25 updated, and `createdAt`/`updatedAt` still hold their Actual values |
+| `POST /api/sync/dummy` on an empty database | 25 rows inserted with null timestamps — the insert path survives the missing keys too |
+| `POST /api/sync/actual` after that | the same rows updated, timestamps backfilled |
+
+The difference between the two payloads, confirmed from the live responses:
+
+| | Actual | Dummy |
+| --- | --- | --- |
+| `id`, `uniqueName`, `latitude`, `longitude` | present | present |
+| `createdAt`, `updatedAt` | present | **absent** |
+| `lastUpdate` | absent | **present** (unmapped, ignored) |
 
 ## Time spent
 
