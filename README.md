@@ -140,6 +140,23 @@ The difference between the two payloads, confirmed from the live responses:
 | `createdAt`, `updatedAt` | present | **absent** |
 | `lastUpdate` | absent | **present** (unmapped, ignored) |
 
+## Part 2 — SQL query
+
+`SqlQueries/LastUpdatedWellPerPlatform.sql` returns the last updated well for each
+platform: `ROW_NUMBER()` ranks each platform's wells newest-first and only rank 1 is kept,
+with `Id` as a tie-breaker so wells sharing an `UpdatedAt` still yield one stable row. The
+file also carries a `CROSS APPLY` variant, which can be the better plan on a large table.
+
+Run against the synced data it reproduces the expected result exactly:
+
+| PlatformName | Id | PlatformId | UniqueName | Latitude | Longitude | CreatedAt | UpdatedAt |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Platform1 | 1 | 11 | Well11 | 37.06257 | 18.406885 | 2017-11-01 02:41:00 | 2018-08-04 02:16:42 |
+| Platform2 | 5 | 12 | Well22 | 181.01989 | 92.034426 | 2018-11-24 06:12:26 | 2018-08-20 14:59:48 |
+| Platform3 | 8 | 13 | Well32 | 289.631824 | 147.255081 | 2015-11-18 23:08:44 | 2016-10-20 12:20:45 |
+| Platform4 | 10 | 14 | Well41 | 357.894286 | 184.068851 | 2017-04-16 09:55:14 | 2018-09-16 19:26:11 |
+| Platform5 | 14 | 15 | Well52 | 489.834418 | 257.696391 | 2017-10-29 07:48:12 | 2016-01-28 18:30:25 |
+
 ## Time spent
 
 **About 3 hours.**
