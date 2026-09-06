@@ -1,0 +1,23 @@
+@AemEnersolSync_HostAddress = http://localhost:5237
+
+### Login + GetPlatformWellActual + upsert
+POST {{AemEnersolSync_HostAddress}}/api/sync/actual
+Accept: application/json
+
+### Login + GetPlatformWellDummy + upsert (proves the changed payload is tolerated)
+POST {{AemEnersolSync_HostAddress}}/api/sync/dummy
+Accept: application/json
+
+### List the stored platforms
+GET {{AemEnersolSync_HostAddress}}/api/platforms
+Accept: application/json
+
+### One platform with its wells
+GET {{AemEnersolSync_HostAddress}}/api/platforms/11
+Accept: application/json
+
+### List wells, optionally for a single platform
+GET {{AemEnersolSync_HostAddress}}/api/wells?platformId=11
+Accept: application/json
+
+###
